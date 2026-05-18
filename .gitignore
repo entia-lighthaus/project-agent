@@ -1,0 +1,21 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Mac files
+.DS_Store
+
+# Large raw datasets
+data/raw/
+
+# Outputs
+outputs/
+
+# Environment variables
+.env
