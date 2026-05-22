@@ -73,3 +73,41 @@ def simulate_cognitive_tradeoffs(
         )
 
     return tradeoffs
+
+#=====================================
+# OTHER TRADEOFFS TO SIMULATE
+# - Convenience vs Quality
+# - Novelty vs Familiarity
+# - Social Approval vs Personal Preference
+
+# TODO: Expand function to simulate more complex and varied cognitive tradeoffs 
+# based on additional persona and context factors, and to generate more detailed insights 
+# about how these tradeoffs might influence the user's review and experience.
+
+#"social_night_out"
+# "weekday_quick_meal"
+# "comfort_food_mood"
+# "solo_reflection"
+# "stress_eating"
+# "date_night"
+# "family_outing"
+
+
+# 1. FULL ARCHETYPE MODALITIES
+
+# Currently: "Deep Experience Analyst"
+
+# Eventually we add:
+
+# Warm Optimist
+# Harsh Critic
+# Reactive Reviewer
+# Emotional Storyteller
+
+# Each should reason differently.
+
+# 2. MEMORY-CONDITIONED REASONING
+
+# Later: if user previously disliked expensive venues → lower tolerance threshold.
+# This becomes adaptive cognition.
+
