@@ -138,6 +138,8 @@ def generate_recommendation_explanation(
             "convenience and efficiency. "
         )
 
+    
+
     # ARCHETYPE REASONING
 
     archetype_text = ""

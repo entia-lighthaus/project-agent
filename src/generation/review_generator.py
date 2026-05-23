@@ -3,7 +3,9 @@
 
 import google.generativeai as genai
 import os
+import time
 from dotenv import load_dotenv
+from google.api_core import exceptions as google_exceptions
 
 load_dotenv()
 
@@ -16,10 +18,27 @@ model = genai.GenerativeModel(
 )
 
 
-def generate_review(prompt):
+def generate_review(prompt, max_retries: int = 3, base_delay: float = 1.0) -> str:
+    """Generate a review from `prompt` with simple retry/backoff on quota errors.
 
-    response = model.generate_content(
-        prompt
-    )
+    Raises the original exception if retries are exhausted.
+    """
 
-    return response.text
+    attempt = 0
+    while True:
+        try:
+            response = model.generate_content(prompt)
+            return response.text
+
+        except google_exceptions.ResourceExhausted as e:
+            attempt += 1
+            if attempt > max_retries:
+                print("Quota exhausted and max retries reached. Check billing/quota.")
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            print(f"Resource exhausted (quota). Retry {attempt}/{max_retries} in {delay}s...")
+            time.sleep(delay)
+
+        except Exception:
+            # For other errors, re-raise so caller can handle/log as appropriate
+            raise
