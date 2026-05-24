@@ -37,3 +37,14 @@ Context-aware recommendations	✅
 Conversational recommendations	✅
 Multiturn memory	✅
 Agentic recommendation logic	✅
+
+
+connect REAL reasoning pipelines
+add debate outputs
+add recommendation explanations
+add memory context
+build requirements.txt
+build Dockerfile
+deploy to Render
+finalize README
+finalize solution paper
