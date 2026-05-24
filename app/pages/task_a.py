@@ -9,6 +9,7 @@
 import sys
 import os
 
+
 sys.path.append(
     os.path.abspath(
         os.path.join(
@@ -59,7 +60,7 @@ contexts = [
 # =========================
 # 4. HELPER: RETRIEVE FEW‑SHOT EXAMPLES
 # =========================
-def get_few_shot_examples(archetype, target_restaurant, unified_df, n=5):
+def get_few_shot_examples(archetype, target_restaurant, unified_df, n=8):
     """
     Retrieve past reviews from the same archetype (random sample).
     target_restaurant is not used for filtering but kept for potential future use.
@@ -104,7 +105,7 @@ def call_llm(prompt, api_key):
     payload = {
         "model": "llama-3.3-70b-versatile",
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
+        "temperature": 0.4,
         "max_tokens": 300
     }
 
@@ -138,6 +139,7 @@ def build_prompt(persona, target_business, context, few_shots):
     tone = context_tones.get(context, "Balanced and honest")
 
     prompt = f"""You are simulating a real user on a Nigerian restaurant review platform.
+    f"- User's historical average rating: {avg_rating:.1f} stars. Keep your predicted rating close to this value unless the restaurant is exceptionally good or bad.\n"
 
 **User Persona:**
 - Archetype: {archetype}
@@ -223,7 +225,17 @@ if st.button("Generate Simulated Review"):
     prompt = build_prompt(sampled_persona, target_business, selected_context, few_shots)
     
     # 5. Call LLM (requires Groq API key in secrets)
-    api_key = st.secrets.get("GROQ_API_KEY", None)
+    
+    import streamlit as st
+    try:
+        api_key = st.secrets["GROQ_API_KEY"]
+    except KeyError:
+        st.error("API Key not found. Please set GROQ_API_KEY in your Streamlit Cloud app secrets.")
+        st.stop()
+
+     
+    # api_key = st.secrets.get("GROQ_API_KEY", None)
+
     if not api_key:
         st.error("Groq API key not found. Please set GROQ_API_KEY in Streamlit secrets.")
     else:
