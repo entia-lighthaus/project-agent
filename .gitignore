@@ -19,3 +19,12 @@ models/
 
 # Environment files
 .envvenv2/
+
+.env
+app/.streamlit/secrets.toml
+*.log
+venv/
+venv_rouge/
+venv_bertscore/
+venv312/
+
