@@ -1,5 +1,6 @@
 # Python
 venv/
+venv2/
 __pycache__/
 *.pyc
 
@@ -17,4 +18,4 @@ data/interim/
 models/
 
 # Environment files
-.env
+.envvenv2/
