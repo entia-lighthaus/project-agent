@@ -1,3 +1,5 @@
+import os
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up to project-agent/
 # Conversational Recommendation Agent Page
 # This page allows users to interact with a conversational recommendation agent. 
 # Users can input their preferences in natural language, and the agent will respond with recommendations or ask for clarification if needed. 
@@ -5,7 +7,7 @@
 
 import streamlit as st
 import sys
-import os
+
 
 
 sys.path.append(

@@ -1,10 +1,12 @@
+import os
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up to project-agent/
 # TASK B: AGENTIC RECOMMENDATION ENGINE
 # This page implements Task B, which focuses on generating agentic recommendations based on user personas and selected contexts. 
 # It allows users to select a persona archetype and a recommendation context, and then generates a set of recommendations that align with the selected persona and context. 
 # This demonstrates the system's ability to create personalized and context-aware recommendations, which is a crucial component of the overall agentic recommendation system.   
 
 import sys
-import os
+
 
 sys.path.append(
     os.path.abspath(
@@ -44,7 +46,9 @@ st.title(
 # LOAD DATA
 
 persona_df = pd.read_csv(
-    "../outputs/persona_dataset.csv"
+    # "../outputs/persona_dataset.csv"
+    "outputs/persona_dataset_full.csv"
+    
 )
 
 lagos_df = pd.read_csv(

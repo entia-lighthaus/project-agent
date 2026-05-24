@@ -1,3 +1,5 @@
+import os
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  
 # TASK A: AGENTIC REVIEW GENERATION
 # This page implements Task A, which focuses on generating agentic reviews based on user personas. 
 # It allows users to select a persona archetype and a context, and then generates a review that reflects the selected persona's characteristics and the chosen context. 
@@ -7,7 +9,7 @@
 # Simulates a user review (rating + text) for a given persona, context, and restaurant.
 
 import sys
-import os
+
 
 
 sys.path.append(
@@ -36,7 +38,8 @@ st.title("Task A — Agentic Review Generation")
 # =========================
 @st.cache_data
 def load_data():
-    persona_df = pd.read_csv("../outputs/persona_dataset_full.csv")
+    persona_df = pd.read_csv("outputs/persona_dataset_full.csv")
+    #persona_df = pd.read_csv("../outputs/persona_dataset_full.csv")
     unified_df = pd.read_csv("../outputs/unified_behavior_with_archetype.csv")
     restaurant_df = pd.read_csv("../data/external/lagos_restaurants_metadata.csv")
     return persona_df, unified_df, restaurant_df
