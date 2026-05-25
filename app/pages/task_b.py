@@ -19,11 +19,12 @@ from src.recommender.agentic_orchestrator import run_agentic_recommendation_pipe
 from src.recommender.agentic_orchestrator import simulate_user_review
 
 
+st.set_page_config(page_title="Task B - Conversational Recommender", layout="wide")
 st.title("Task B — Agentic Recommendation Engine")
 
-# -------------------------------
-# 1. LOAD DATA
-# -------------------------------
+# ----------------------------------------------------------------------
+# 1. LOAD DATA (cached)
+# ----------------------------------------------------------------------
 @st.cache_data
 def load_data():
     persona_df = pd.read_csv(os.path.join(PROJECT_ROOT, "outputs", "persona_dataset_full.csv"))
@@ -33,147 +34,144 @@ def load_data():
 
 persona_df, unified_behavior_df, lagos_df = load_data()
 
-# -------------------------------
-# 2. CONTEXT OPTIONS (Nigerian‑flavoured)
-# -------------------------------
-contexts = {
-    "celebration": "Excited, generous, willing to spend",
-    "comfort_food_mood": "Warm, nostalgic, values portion size and taste",
-    "social_night_out": "Energetic, prefers loud music and group seating",
-    "weekday_quick_meal": "Practical, values speed and value for money",
-    "sapa_budget": "Highly price‑sensitive, will compromise on ambience",
-    "romantic_date": "Focuses on ambience, quietness, and presentation"
-}
-
-# -------------------------------
-# 3. SESSION STATE FOR MULTI‑TURN CONVERSATION
-# -------------------------------
-if "conversation_memory" not in st.session_state:
-    st.session_state.conversation_memory = []
+# ----------------------------------------------------------------------
+# 2. INITIALISE SESSION STATE
+# ----------------------------------------------------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []          # list of {"role": "user/assistant", "content": ...}
 if "last_recommendations" not in st.session_state:
     st.session_state.last_recommendations = []
-if "user_feedback" not in st.session_state:
-    st.session_state.user_feedback = None
+if "constraints" not in st.session_state:
+    st.session_state.constraints = {}        # budget, location, cuisine
+if "domain_choice" not in st.session_state:
+    st.session_state.domain_choice = "Lagos restaurants"
 
-# -------------------------------
-# 4. COLD‑START HANDLER (new user with no history)
-# -------------------------------
-def cold_start_preferences():
-    st.subheader("Tell us a bit about yourself (cold‑start)")
-    fav_cuisine = st.selectbox("What type of food do you usually like?", 
-                               ["Nigerian", "Fast Food", "Fine Dining", "Cafe", "Any"])
-    budget = st.selectbox("What's your typical budget per person?", ["Budget (under ₦5k)", "Moderate (₦5k-₦15k)", "Premium (₦15k+)"])
-    location = st.radio("Preferred location?", ["Island", "Mainland", "No preference"])
-    return {"cuisine": fav_cuisine, "budget": budget, "location": location}
-
-# -------------------------------
-# 5. CONTEXTUAL FEATURES (time, day, month‑end)
-# -------------------------------
-def get_contextual_features():
+# ----------------------------------------------------------------------
+# 3. SIDEBAR - Persona, context, cold‑start, domain
+# ----------------------------------------------------------------------
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    selected_archetype = st.selectbox("Persona Archetype", persona_df["archetype"].unique())
+    
+    # Domain selector
+    domain_options = {
+        "Lagos restaurants": "lagos_restaurants",
+        "Yelp restaurants": "yelp",
+        "Books (cross‑domain)": "goodreads",
+        "All domains": None
+    }
+    selected_domain_label = st.selectbox("Recommendation domain", list(domain_options.keys()))
+    st.session_state.domain_choice = domain_options[selected_domain_label]
+    
+    cold_start = st.checkbox("I'm a new user (cold‑start mode)")
+    
+    # Additional constraints
+    st.subheader("Preferences (optional)")
+    budget = st.selectbox("Budget", ["Any", "Budget", "Moderate", "Premium"])
+    location = st.selectbox("Location", ["Any", "Island", "Mainland"])
+    cuisine = st.text_input("Cuisine preference (e.g., 'Nigerian', 'Italian')")
+    
+    # Contextual signals (auto‑detected)
     now = datetime.now()
-    hour = now.hour
-    day = now.weekday()  # Monday=0
-    is_weekend = day >= 5
+    is_weekend = now.weekday() >= 5
     is_month_end = now.day >= 25
-    
-    if hour < 11:
-        time_context = "morning"
-    elif hour < 16:
-        time_context = "afternoon"
+    hour = now.hour
+    if hour < 12:
+        time_of_day = "morning"
+    elif hour < 18:
+        time_of_day = "afternoon"
     else:
-        time_context = "evening"
+        time_of_day = "evening"
     
-    return {
-        "time_of_day": time_context,
+    st.info(f"📅 Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
+
+# ----------------------------------------------------------------------
+# 4. HELPER: Call orchestrator with current context & constraints
+# ----------------------------------------------------------------------
+def get_recommendations(user_message=None):
+    # Build persona row
+    persona_row = persona_df[persona_df["archetype"] == selected_archetype].sample(1).iloc[0].to_dict()
+    
+    # Build additional context
+    additional_context = {
+        "time_of_day": time_of_day,
         "is_weekend": is_weekend,
         "is_month_end": is_month_end,
-        "suggestion": "budget" if is_month_end else "regular"
+        "budget_preference": budget if budget != "Any" else None,
+        "location_preference": location if location != "Any" else None,
+        "cuisine_preference": cuisine if cuisine else None,
+        "cold_start": cold_start
     }
-
-# -------------------------------
-# 6. USER INTERFACE
-# -------------------------------
-col1, col2 = st.columns(2)
-with col1:
-    selected_archetype = st.selectbox("Select Persona Archetype", persona_df["archetype"].unique())
-with col2:
-    selected_context = st.selectbox("Select Recommendation Context", list(contexts.keys()))
-
-# Cold‑start toggle
-cold_start = st.checkbox("I'm a new user (cold‑start mode)", value=False)
-if cold_start:
-    cold_start_prefs = cold_start_preferences()
-else:
-    cold_start_prefs = None
-
-# Contextual features (automatically detected)
-ctx = get_contextual_features()
-st.info(f" Context: {ctx['time_of_day']}, {'weekend' if ctx['is_weekend'] else 'weekday'}, {'month‑end (budget mode)' if ctx['is_month_end'] else 'regular spending'}")
-
-# Multi‑turn feedback (if user already saw recommendations)
-if st.session_state.last_recommendations:
-    user_feedback = st.selectbox("Did you like any of the previous recommendations?", ["", "Yes, show more like that", "No, try different ones", "Seen that before"])
-    if user_feedback:
-        st.session_state.user_feedback = user_feedback
-
-# Generate button
-if st.button("Generate Personalized Recommendations"):
-    # Sample a persona row
-    sampled_persona = persona_df[persona_df["archetype"] == selected_archetype].sample(1).iloc[0]
     
-    # Sample a business (or cold‑start override)
-    if cold_start and cold_start_prefs:
-        # Filter by budget and location
-        filtered = lagos_df.copy()
-        if "Budget" in cold_start_prefs["budget"]:
-            filtered = filtered[filtered["price_range"] == "Budget"]
-        elif "Premium" in cold_start_prefs["budget"]:
-            filtered = filtered[filtered["price_range"] == "Premium"]
-        if cold_start_prefs["location"] != "No preference":
-            filtered = filtered[filtered["location_type"] == cold_start_prefs["location"]]
-        if len(filtered) > 0:
-            sampled_business = filtered.sample(1).iloc[0]
-        else:
-            sampled_business = lagos_df.sample(1).iloc[0]
-    else:
-        sampled_business = lagos_df.sample(1).iloc[0]
+    # For cold‑start, we may need to use a fallback domain (e.g., books) if no restaurant history.
+    # That logic is inside orchestrator – we just pass the domain from sidebar.
+    domain_for_retrieval = st.session_state.domain_choice
     
-    # Include contextual features in the call
+    # If we have a user message (conversation turn), append it to memory
+    if user_message:
+        st.session_state.messages.append({"role": "user", "content": user_message})
+    
+    # Call orchestrator
     output = run_agentic_recommendation_pipeline(
-        persona_row=sampled_persona,
-        business_row=sampled_business,
+        persona_row=persona_row,
+        business_row=lagos_df.sample(1).iloc[0].to_dict(),  # dummy, not used for retrieval
         unified_behavior_df=unified_behavior_df,
-        context_name=selected_context,
-        user_id="streamlit_recommender_user",
-        additional_context=ctx   # pass time, month‑end etc.
+        context_name="general",      # we pass detailed context via additional_context
+        user_id="streamlit_user",
+        additional_context=additional_context,
+        domain=domain_for_retrieval   # we need to add this parameter to orchestrator (see note)
     )
     
-    # Store recommendations in session state for multi‑turn
-    st.session_state.last_recommendations = output["recommendations"]
-    st.session_state.conversation_memory.append({"role": "user", "context": selected_context})
-    st.session_state.conversation_memory.append({"role": "assistant", "recommendations": output["recommendations"][:3]})
-    
-    # Display recommendations
-    st.subheader("Behavioral Recommendations")
-    for rec in output["recommendations"]:
-        st.markdown("---")
-        st.write(f"### Domain: {rec['domain']}")
-        st.write(f"⭐ Rating: {rec.get('rating', 'N/A')}")
-        st.write(rec.get("recommendation_preview", "No preview"))
-        st.info(f" {rec.get('explanation', 'No explanation')}")
-    
-    # Show reasoning trace if available
-    if "reasoning" in output:
-        with st.expander("See agentic reasoning trace"):
-            st.write(output["reasoning"])
-    
-    st.subheader("Multiturn Memory")
-    st.write(output.get("memory_context", "No memory context"))
-    st.success("Recommendations generated with contextual awareness.")
+    # Store recommendations
+    st.session_state.last_recommendations = output.get("recommendations", [])
+    # Also store assistant message
+    if st.session_state.last_recommendations:
+        assistant_reply = "Here are some recommendations:\n\n"
+        for rec in st.session_state.last_recommendations[:3]:
+            assistant_reply += f"- {rec['domain']}: {rec.get('recommendation_preview', '')[:100]}...\n"
+        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+    else:
+        st.session_state.messages.append({"role": "assistant", "content": "Sorry, I couldn't find any recommendations. Please adjust your preferences."})
 
-# Add a reset button for conversation memory
-if st.button("Reset Conversation"):
-    st.session_state.conversation_memory = []
+# ----------------------------------------------------------------------
+# 5. DISPLAY CONVERSATION HISTORY
+# ----------------------------------------------------------------------
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.write(msg["content"])
+
+# ----------------------------------------------------------------------
+# 6. CHAT INPUT (multiturn)
+# ----------------------------------------------------------------------
+if prompt := st.chat_input("Ask for recommendations or give feedback (e.g., 'more options', 'cheaper', 'different cuisine')..."):
+    # Process user message: simple intent extraction
+    if "more options" in prompt.lower():
+        # Rerun with same constraints but increase top_k (handled inside orchestrator)
+        get_recommendations(user_message=prompt)
+    elif "cheaper" in prompt.lower() or "budget" in prompt.lower():
+        st.session_state.constraints["budget"] = "Budget"
+        get_recommendations(user_message=prompt)
+    elif "different" in prompt.lower() or "not good" in prompt.lower():
+        # force a new random sample
+        get_recommendations(user_message=prompt)
+    else:
+        get_recommendations(user_message=prompt)
+    
+    st.rerun()
+
+# ----------------------------------------------------------------------
+# 7. BUTTON FOR INITIAL RECOMMENDATION (if no conversation yet)
+# ----------------------------------------------------------------------
+if len(st.session_state.messages) == 0:
+    if st.button("Start Conversation & Get Recommendations"):
+        get_recommendations()
+        st.rerun()
+
+# ----------------------------------------------------------------------
+# 8. RESET BUTTON
+# ----------------------------------------------------------------------
+if st.sidebar.button("Reset Conversation"):
+    st.session_state.messages = []
     st.session_state.last_recommendations = []
-    st.session_state.user_feedback = None
+    st.session_state.constraints = {}
     st.rerun()

@@ -129,6 +129,7 @@ def run_agentic_recommendation_pipeline(
     unified_behavior_df,
     context_name="social_night_out",
     user_id="user_001",
+    domain='lagos_restaurants',
     additional_context=None   # new: dict with time_of_day, is_weekend, is_month_end, location_preference
 ):
     """
@@ -159,8 +160,13 @@ def run_agentic_recommendation_pipeline(
     retrieval_results = retrieve_behavioral_matches(
         persona_row,
         unified_behavior_df,
-        top_k=10
+        top_k=10,
+        domain='lagos_restaurants',               # primary
+        fallback_to_cross_domain=False            # change to True if you want books/electronics when no restaurants
+        # domain=domain,
+        # fallback_to_cross_domain=True   # only if you want books when no restaurants
     )
+
     
     # Apply context filters to retrieval results (if available)
     if isinstance(retrieval_results, pd.DataFrame) and len(retrieval_results) > 0:
