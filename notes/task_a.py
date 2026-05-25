@@ -184,3 +184,32 @@ if st.button(
     st.success(
     "Agentic reasoning pipeline completed successfully."
     )
+
+
+@st.cache_data
+def load_data():
+    persona_df = pd.read_csv("outputs/persona_dataset_full.csv")
+    #persona_df = pd.read_csv("../outputs/persona_dataset_full.csv")
+    unified_df = pd.read_csv("../outputs/unified_behavior_with_archetype.csv")
+    restaurant_df = pd.read_csv("../data/external/lagos_restaurants_metadata.csv")
+    return persona_df, unified_df, restaurant_df
+
+# Then unpack:
+persona_df, unified_behavior_df, lagos_df = load_data()
+
+
+# task b load data
+persona_df = pd.read_csv(
+    # "../outputs/persona_dataset.csv"
+    "outputs/persona_dataset_full.csv"
+    
+)
+
+lagos_df = pd.read_csv(
+    "../data/external/clean_lagos_restaurants.csv"
+)
+
+unified_behavior_df = pd.read_csv(
+    "../outputs/unified_behavior_dataset.csv"
+)
+
