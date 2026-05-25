@@ -28,6 +28,8 @@ import json
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from src.recommender.agentic_orchestrator import simulate_user_review
+
 
 # =========================
 # 1. CONFIGURE PAGE
