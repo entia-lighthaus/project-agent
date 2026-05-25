@@ -14,22 +14,13 @@ def retrieve_behavioral_matches(
     persona_row,
     unified_df,
     top_k=10,
-    domain='lagos_restaurants',      # NEW: restrict to a specific domain
-    fallback_to_cross_domain=False   # NEW: if no matches, use other domains
+    domain='lagos_restaurants',
+    fallback_to_cross_domain=False
 ):
     """
     Retrieve top‑k items from unified behavior dataset that behaviourally match the persona.
-    
-    Args:
-        persona_row (dict): Contains 'archetype', 'dominant_value', etc.
-        unified_df (pd.DataFrame): Must have columns: 'user_id', 'item_id', 'rating', 'review_text', 'domain', 'archetype', ...
-        top_k (int): Number of items to return.
-        domain (str or list): Restrict to one or more domains (e.g., 'lagos_restaurants', 'yelp', 'goodreads').
-        fallback_to_cross_domain (bool): If True and no items found in primary domain, retrieve from all domains.
-    
-    Returns:
-        pd.DataFrame: Top‑k matched items (with all columns).
     """
+    
     # 1. Filter by domain if specified
     if domain:
         if isinstance(domain, str):
@@ -50,20 +41,32 @@ def retrieve_behavioral_matches(
         return pd.DataFrame()
     
     # 4. Score candidates by behavioural similarity to the persona
-    #    Here we use a simple heuristic: boost items that were rated highly by users of the same archetype.
-    #    More advanced: collaborative filtering scores.
     archetype = persona_row.get('archetype', 'Balanced')
     same_archetype = filtered_df[filtered_df['archetype'] == archetype]
     
-    if len(same_archetype) >= top_k:
-        candidates = same_archetype
+    # Determine how many we need from same archetype and others
+    need = top_k
+    candidates = []
+    
+    # First take all from same archetype (or as many as top_k)
+    if len(same_archetype) >= need:
+        candidates = same_archetype.sample(need, random_state=42)
     else:
-        # Combine same archetype + others (but give weight to same archetype)
-        others = filtered_df[filtered_df['archetype'] != archetype].sample(min(top_k - len(same_archetype), len(others)))
-        candidates = pd.concat([same_archetype, others])
+        # Take all same archetype
+        candidates = same_archetype.copy()
+        remaining = need - len(same_archetype)
+        # Get other archetypes
+        others_df = filtered_df[filtered_df['archetype'] != archetype]
+        if len(others_df) > 0:
+            others_sample = others_df.sample(min(remaining, len(others_df)), random_state=42)
+            candidates = pd.concat([candidates, others_sample])
     
     # 5. Sort by rating (descending) and then by review length (a proxy for engagement)
-    candidates = candidates.sort_values(['rating', 'review_text'], ascending=[False, False])
+    if len(candidates) > 0:
+        # Ensure rating is numeric
+        candidates = candidates.copy()
+        candidates['rating'] = pd.to_numeric(candidates['rating'], errors='coerce')
+        candidates = candidates.sort_values(['rating', 'review_text'], ascending=[False, False])
     
     # 6. Return top_k unique items (avoid duplicates by item_id)
     candidates = candidates.drop_duplicates(subset='item_id').head(top_k)
