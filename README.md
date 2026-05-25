@@ -118,24 +118,54 @@ The system maintains lightweight conversational memory across interactions.
 
 # Task B — Agentic Recommendation Intelligence
 
-## Contextual Conversational Retrieval
+## LLM‑Powered Conversational Agent & Contextual Conversational Retrieval
 
-The recommendation engine supports:
+Our recommendation engine is not a static list – it’s a conversational, persona‑aware agent that understands natural language, adapts to user feedback, and reasons across domains (restaurants, books, groceries, lifestyle). It is built on:
 
-* natural language recommendation requests
-* clarification questions
-* conversational memory
-* contextual recommendation reasoning
+Groq Llama 3.3 70B – fast inference with high reasoning capability.
 
-Example:
+Unified behavior dataset – enriched with archetype, dominant_value, item_name, and cultural tags (Island/Mainland, price range).
 
-User:
+Persona memory – each user’s archetype (e.g., Harsh Critic, Emotional Storyteller) and dominant value (e.g., service quality, ambience) drive recommendation logic.
 
-> “I want a chill rooftop in Lagos for date night.”
+Contextual awareness – automatically detects time of day, weekend, month‑end (budget mode), and location preference.
 
-Agent:
+Multi‑turn conversation – stores chat history in Streamlit session state; the agent remembers previous exchanges and can refine recommendations (e.g., “cheaper”, “more options”, “different cuisine”).
 
-> “Mainland or Island?”
+
+
+# Example:
+
+User:  I want a romantic rooftop dinner in Lagos.  
+
+Agent: Sure! Are you thinking Island or Mainland?  
+
+User: Island.  
+
+Agent: I’d recommend Àkéta Rooftop in VI – modern African, mains ~₦15k, great sunset views. Or RSVP Lagos for a livelier lounge vibe. Would you like something more budget‑friendly?  
+
+User: Yes, cheaper.  
+
+Agent: Got it. For a romantic but affordable rooftop, try Sky Lounge on the Mainland – mains ~₦8k. Also, would you consider a book recommendation with a romantic theme?  
+
+User: That would be lovely.  
+
+Agent: “The Wedding Date” by Jasmine Guillory – a fun, romantic read that Lagos readers with an Emotional Storyteller persona loved.  
+
+# Key capabilities
+Feature & 	Implementation
+- Persona injection: Prompt includes user archetype, dominant value, average rating.
+- Cross‑domain transfer:	Retrieves from unified_behavior_df – seamlessly switches from restaurants to books/groceries based on user request.
+- Cold‑start handling:	When no interaction history exists, agent asks clarifying questions (budget, location, occasion).
+- LLM reasoning:	The agent explains why an item is recommended (“Because you value service quality and it’s month‑end, I chose this budget restaurant with high staff ratings”).
+- Nigerian cultural grounding	(Uses location types (Island/Mainland), Pidgin expressions (na wa, abi, jare), and “sapa” budget logic.)
+
+# Code location
+Main agent logic: src/recommender/conversational_agent.py
+
+Streamlit integration: app/pages/task_b.py
+
+To run the conversational agent locally, select Task B in the Streamlit sidebar and start chatting. The agent will adapt to your chosen persona and domain.
 
 ---
 

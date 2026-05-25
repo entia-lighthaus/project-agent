@@ -3,7 +3,9 @@
 # It constructs explanations for each recommendation to enhance user understanding and engagement.
 
 import random
+import json
 import pandas as pd
+from src.recommender.conversational_agent import call_llm
 
 # DOMAIN INTERPRETATIONS (cross‑domain labels)
 DOMAIN_LABELS = {
@@ -29,9 +31,13 @@ def generate_recommendation_explanation(persona_row, recommendation_row, context
     """
     archetype = persona_row.get("archetype", "Warm Optimist")
     domain = recommendation_row.get("domain", "unknown")
+    item_name = recommendation_row.get("item_name", "Unknown item")   # NEW
+    rating = recommendation_row.get("rating", None)
     review_text = str(recommendation_row.get("review_text", ""))[:180]
+
     domain_label = DOMAIN_LABELS.get(domain, domain)
-    
+
+
     # Base explanation templates (Nigerian‑flavoured)
     templates = [
         f"As a {archetype}, you may appreciate these {domain_label} because they align with your behavioral preferences and emotional tendencies.",
@@ -64,6 +70,7 @@ def generate_recommendation_explanation(persona_row, recommendation_row, context
     
     return {
         "domain": domain,
+        "item_name": item_name,          
         "rating": recommendation_row.get("rating", None),
         "recommendation_preview": review_text,
         "explanation": explanation

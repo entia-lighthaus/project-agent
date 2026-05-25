@@ -17,6 +17,9 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 
 from src.recommender.agentic_orchestrator import run_agentic_recommendation_pipeline
 from src.recommender.agentic_orchestrator import simulate_user_review
+from src.recommender.conversational_agent import conversational_agent
+from src.recommender.behavioral_retrieval import retrieve_behavioral_matches
+from src.recommender.recommendation_generation import generate_conversational_recommendations
 
 
 st.set_page_config(page_title="Task B - Conversational Recommender", layout="wide")
@@ -83,7 +86,7 @@ with st.sidebar:
     else:
         time_of_day = "evening"
     
-    st.info(f"📅 Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
+    st.info(f" Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
 
 # ----------------------------------------------------------------------
 # 4. HELPER: Call orchestrator with current context & constraints
@@ -92,53 +95,46 @@ def get_recommendations(user_message=None):
     # Build persona row
     persona_row = persona_df[persona_df["archetype"] == selected_archetype].sample(1).iloc[0].to_dict()
     
-    # Build additional context
-    additional_context = {
+    # Build constraints dict
+    constraints = {
+        "budget": budget if budget != "Any" else None,
+        "location": location if location != "Any" else None,
+        "cuisine": cuisine if cuisine else None,
+        "cold_start": cold_start,
         "time_of_day": time_of_day,
         "is_weekend": is_weekend,
-        "is_month_end": is_month_end,
-        "budget_preference": budget if budget != "Any" else None,
-        "location_preference": location if location != "Any" else None,
-        "cuisine_preference": cuisine if cuisine else None,
-        "cold_start": cold_start
+        "is_month_end": is_month_end
     }
     
-    # For cold‑start, we may need to use a fallback domain (e.g., books) if no restaurant history.
-    # That logic is inside orchestrator – we just pass the domain from sidebar.
-    domain_for_retrieval = st.session_state.domain_choice
+    domain_choice = st.session_state.domain_choice
     
-    # If we have a user message (conversation turn), append it to memory
-    if user_message:
+    # If user_message not provided, set a default
+    if not user_message:
+        user_message = "Give me recommendations"
+    else:
+        # Append user message to conversation history
         st.session_state.messages.append({"role": "user", "content": user_message})
     
-    # Call orchestrator
-    output = run_agentic_recommendation_pipeline(
-        persona_row=persona_row,
-        business_row=lagos_df.sample(1).iloc[0].to_dict(),  # dummy, not used for retrieval
-        unified_behavior_df=unified_behavior_df,
-        context_name="general",      # we pass detailed context via additional_context
+    # Call the conversational agent (this is the core LLM call)
+    response = conversational_agent(
+        user_message=user_message,
         user_id="streamlit_user",
-        additional_context=additional_context,
-        domain=domain_for_retrieval   # we need to add this parameter to orchestrator (see note)
+        persona_row=persona_row,
+        domain=domain_choice,
+        constraints=constraints,
+        conversation_history=st.session_state.messages
     )
     
-    # Store recommendations
-    st.session_state.last_recommendations = output.get("recommendations", [])
-    # Also store assistant message
-    if st.session_state.last_recommendations:
-        assistant_reply = "Here are some recommendations:\n\n"
-        for rec in st.session_state.last_recommendations[:3]:
-            assistant_reply += f"- {rec['domain']}: {rec.get('recommendation_preview', '')[:100]}...\n"
-        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
-    else:
-        st.session_state.messages.append({"role": "assistant", "content": "Sorry, I couldn't find any recommendations. Please adjust your preferences."})
-
+    # Append assistant response to conversation history
+    st.session_state.messages.append({"role": "assistant", "content": response})
+    
+    # For demonstration, we will just show the raw response from the agent. In a real implementation, you would parse this response and extract structured recommendation data to display nicely.
 # ----------------------------------------------------------------------
 # 5. DISPLAY CONVERSATION HISTORY
 # ----------------------------------------------------------------------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
-        st.write(msg["content"])
+        st.write(msg["content"]) 
 
 # ----------------------------------------------------------------------
 # 6. CHAT INPUT (multiturn)
@@ -157,6 +153,20 @@ if prompt := st.chat_input("Ask for recommendations or give feedback (e.g., 'mor
     else:
         get_recommendations(user_message=prompt)
     
+    st.rerun()
+
+    response = conversational_agent(
+        user_message=prompt,
+        user_id="streamlit_user",
+        persona_row=persona_row,
+        domain=st.session_state.domain_choice,
+        constraints={
+            "budget": budget if budget != "Any" else None,
+            "location": location if location != "Any" else None
+        },
+        conversation_history=st.session_state.messages
+    )
+    st.session_state.messages.append({"role": "assistant", "content": response})
     st.rerun()
 
 # ----------------------------------------------------------------------
