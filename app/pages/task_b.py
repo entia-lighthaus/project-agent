@@ -1,26 +1,13 @@
-import os
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up to project-agent/
 # TASK B: AGENTIC RECOMMENDATION ENGINE
 # This page implements Task B, which focuses on generating agentic recommendations based on user personas and selected contexts. 
 # It allows users to select a persona archetype and a recommendation context, and then generates a set of recommendations that align with the selected persona and context. 
 # This demonstrates the system's ability to create personalized and context-aware recommendations, which is a crucial component of the overall agentic recommendation system.   
 
 import sys
-
-
-sys.path.append(
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "../.."
-        )
-    )
-)
-
+import os   
 import streamlit as st
 import pandas as pd
 import sys
-import os
 
 
 sys.path.append(
@@ -31,6 +18,8 @@ sys.path.append(
         )
     )
 )
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 from src.recommender.agentic_orchestrator import (
@@ -44,21 +33,11 @@ st.title(
 
 
 # LOAD DATA
-
-persona_df = pd.read_csv(
-    # "../outputs/persona_dataset.csv"
-    "outputs/persona_dataset_full.csv"
-    
-)
-
-lagos_df = pd.read_csv(
-    "../data/external/clean_lagos_restaurants.csv"
-)
-
-unified_behavior_df = pd.read_csv(
-    "../outputs/unified_behavior_dataset.csv"
-)
-
+def load_data():
+    persona_df = pd.read_csv(os.path.join(PROJECT_ROOT, "outputs", "persona_dataset_full.csv"))
+    unified_df = pd.read_csv(os.path.join(PROJECT_ROOT, "outputs", "unified_behavior_with_archetype.csv"))
+    lagos_df = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "external", "lagos_restaurants_metadata.csv"))
+    return persona_df, unified_df, lagos_df
 
 # CONTEXTS
 

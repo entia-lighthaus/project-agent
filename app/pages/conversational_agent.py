@@ -1,13 +1,12 @@
-import os
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # goes up to project-agent/
 # Conversational Recommendation Agent Page
 # This page allows users to interact with a conversational recommendation agent. 
 # Users can input their preferences in natural language, and the agent will respond with recommendations or ask for clarification if needed. 
 # The conversation history is maintained in the session state, allowing for a seamless chat experience.
 
+import os
 import streamlit as st
 import sys
-
+import pandas as pd
 
 
 sys.path.append(
@@ -19,6 +18,16 @@ sys.path.append(
     )
 )
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+# DATA LOADING FUNCTION
+def load_data():
+    persona_df = pd.read_csv(os.path.join(PROJECT_ROOT, "outputs", "persona_dataset_full.csv"))
+    unified_df = pd.read_csv(os.path.join(PROJECT_ROOT, "outputs", "unified_behavior_with_archetype.csv"))
+    lagos_df = pd.read_csv(os.path.join(PROJECT_ROOT, "data", "external", "lagos_restaurants_metadata.csv"))
+    return persona_df, unified_df, lagos_df
+
 
 from src.recommender.conversational_agent import (
     conversational_agent
@@ -26,7 +35,7 @@ from src.recommender.conversational_agent import (
 
 
 st.title(
-    "Conversational Recommendation Agent"
+    "Conversational Recommendation Agent" 
 )
 
 
