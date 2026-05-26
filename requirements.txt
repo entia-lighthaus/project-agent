@@ -10,3 +10,4 @@ textblob
 matplotlib
 jupyter
 notebook
+groq
