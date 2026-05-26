@@ -37,6 +37,7 @@ def load_data():
 
 persona_df, unified_behavior_df, lagos_df = load_data()
 
+
 # ----------------------------------------------------------------------
 # 2. INITIALISE SESSION STATE
 # ----------------------------------------------------------------------
@@ -49,47 +50,10 @@ if "constraints" not in st.session_state:
 if "domain_choice" not in st.session_state:
     st.session_state.domain_choice = "Lagos restaurants"
 
-# ----------------------------------------------------------------------
-# 3. SIDEBAR - Persona, context, cold‑start, domain
-# ----------------------------------------------------------------------
-with st.sidebar:
-    st.header("⚙️ Configuration")
-    selected_archetype = st.selectbox("Persona Archetype", persona_df["archetype"].unique())
-    
-    # Domain selector
-    domain_options = {
-        "Lagos restaurants": "lagos_restaurants",
-        "Yelp restaurants": "yelp",
-        "Books (cross‑domain)": "goodreads",
-        "All domains": None
-    }
-    selected_domain_label = st.selectbox("Recommendation domain", list(domain_options.keys()))
-    st.session_state.domain_choice = domain_options[selected_domain_label]
-    
-    cold_start = st.checkbox("I'm a new user (cold‑start mode)")
-    
-    # Additional constraints
-    st.subheader("Preferences (optional)")
-    budget = st.selectbox("Budget", ["Any", "Budget", "Moderate", "Premium"])
-    location = st.selectbox("Location", ["Any", "Island", "Mainland"])
-    cuisine = st.text_input("Cuisine preference (e.g., 'Nigerian', 'Italian')")
-    
-    # Contextual signals (auto‑detected)
-    now = datetime.now()
-    is_weekend = now.weekday() >= 5
-    is_month_end = now.day >= 25
-    hour = now.hour
-    if hour < 12:
-        time_of_day = "morning"
-    elif hour < 18:
-        time_of_day = "afternoon"
-    else:
-        time_of_day = "evening"
-    
-    st.info(f" Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
+
 
 # ----------------------------------------------------------------------
-# 4. HELPER: Call orchestrator with current context & constraints
+# 3. HELPER: Call orchestrator with current context & constraints
 # ----------------------------------------------------------------------
 def get_recommendations(user_message=None):
     # Build persona row
@@ -127,14 +91,75 @@ def get_recommendations(user_message=None):
     
     # Append assistant response to conversation history
     st.session_state.messages.append({"role": "assistant", "content": response})
+
+
+# ----------------------------------------------------------------------
+# 4. SIDEBAR - Persona, context, cold‑start, domain
+# ----------------------------------------------------------------------
+with st.sidebar:
+    st.header("⚙️ Configuration")
+    selected_archetype = st.selectbox("Persona Archetype", persona_df["archetype"].unique())
     
-    # For demonstration, we will just show the raw response from the agent. In a real implementation, you would parse this response and extract structured recommendation data to display nicely.
+    # Domain selector
+    domain_options = {
+        "Lagos restaurants": "lagos_restaurants",
+        "Yelp restaurants": "yelp",
+        "Books (cross‑domain)": "goodreads",
+        "Home & Kitchen": "amazon_home",
+        "Groceries & Gourmet": "amazon_grocery",
+        "All domains": None
+    }
+    selected_domain_label = st.selectbox("Recommendation domain", list(domain_options.keys()))
+    st.session_state.domain_choice = domain_options[selected_domain_label]
+    
+    cold_start = st.checkbox("I'm a new user (cold‑start mode)")
+    
+    # Additional constraints
+    st.subheader("Preferences (optional)")
+    budget = st.selectbox("Budget", ["Any", "Budget", "Moderate", "Premium"])
+    location = st.selectbox("Location", ["Any", "Island", "Mainland"])
+    cuisine = st.text_input("Cuisine preference (e.g., 'Nigerian', 'Italian')")
+    
+    # Contextual signals (auto‑detected)
+    now = datetime.now()
+    is_weekend = now.weekday() >= 5
+    is_month_end = now.day >= 25
+    hour = now.hour
+    if hour < 12:
+        time_of_day = "morning"
+    elif hour < 18:
+        time_of_day = "afternoon"
+    else:
+        time_of_day = "evening"
+    
+    st.info(f" Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
+
+    st.markdown("---")
+    
+    # Start Conversation button
+    if st.button("Start Conversation & Get Recommendations", use_container_width=True):
+        # Clear any old conversation if you want a fresh start? Optional.
+        # Then generate recommendations with a default message
+        get_recommendations(user_message="Give me recommendations")
+        st.rerun()
+    
+    # Reset Conversation button (existing)
+    if st.button("Reset Conversation", use_container_width=True):
+        st.session_state.messages = []
+        st.session_state.last_recommendations = []
+        st.rerun()
+
+
+    
+
 # ----------------------------------------------------------------------
 # 5. DISPLAY CONVERSATION HISTORY
 # ----------------------------------------------------------------------
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.write(msg["content"]) 
+
+
 
 # ----------------------------------------------------------------------
 # 6. CHAT INPUT (multiturn)
@@ -169,19 +194,3 @@ if prompt := st.chat_input("Ask for recommendations or give feedback (e.g., 'mor
     st.session_state.messages.append({"role": "assistant", "content": response})
     st.rerun()
 
-# ----------------------------------------------------------------------
-# 7. BUTTON FOR INITIAL RECOMMENDATION (if no conversation yet)
-# ----------------------------------------------------------------------
-if len(st.session_state.messages) == 0:
-    if st.button("Start Conversation & Get Recommendations"):
-        get_recommendations()
-        st.rerun()
-
-# ----------------------------------------------------------------------
-# 8. RESET BUTTON
-# ----------------------------------------------------------------------
-if st.sidebar.button("Reset Conversation"):
-    st.session_state.messages = []
-    st.session_state.last_recommendations = []
-    st.session_state.constraints = {}
-    st.rerun()
