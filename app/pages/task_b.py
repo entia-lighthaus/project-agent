@@ -18,7 +18,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 from src.recommender.agentic_orchestrator import run_agentic_recommendation_pipeline
 from src.recommender.agentic_orchestrator import simulate_user_review
 from src.recommender.conversational_agent import conversational_agent
-from src.recommender.behavioral_retrieval import retrieve_behavioral_matches
+from src.recommender.behavioral_retrieval import build_user_item_matrix, retrieve_behavioral_matches
 from src.recommender.recommendation_generation import generate_conversational_recommendations
 
 
@@ -55,7 +55,7 @@ if "domain_choice" not in st.session_state:
 # ----------------------------------------------------------------------
 # 3. HELPER: Call orchestrator with current context & constraints
 # ----------------------------------------------------------------------
-def get_recommendations(user_message=None):
+def get_recommendations(user_message=None, use_cosine=True):
     # Build persona row
     persona_row = persona_df[persona_df["archetype"] == selected_archetype].sample(1).iloc[0].to_dict()
     
@@ -83,10 +83,11 @@ def get_recommendations(user_message=None):
     response = conversational_agent(
         user_message=user_message,
         user_id="streamlit_user",
-        persona_row=persona_row,
+        persona_row=persona_row, 
         domain=domain_choice,
         constraints=constraints,
-        conversation_history=st.session_state.messages
+        conversation_history=st.session_state.messages,
+        use_cosine=use_cosine
     )
     
     # Append assistant response to conversation history
@@ -134,23 +135,23 @@ with st.sidebar:
     
     st.info(f" Context: {time_of_day}, {'weekend' if is_weekend else 'weekday'}, {'month‑end (budget mode)' if is_month_end else 'regular spending'}")
 
+    # Cosine similarity toggle - moved BEFORE button
+    use_cosine = st.checkbox("Use Cosine Similarity (collaborative filtering)", value=True)
+    st.info("When enabled, recommendations are based on similar users’ tastes. When disabled, uses archetype‑based retrieval.")
+    
     st.markdown("---")
     
-    # Start Conversation button
+    # Start Conversation button - now passes use_cosine
     if st.button("Start Conversation & Get Recommendations", use_container_width=True):
-        # Clear any old conversation if you want a fresh start? Optional.
-        # Then generate recommendations with a default message
-        get_recommendations(user_message="Give me recommendations")
+        get_recommendations(user_message="Give me recommendations", use_cosine=use_cosine)
         st.rerun()
     
-    # Reset Conversation button (existing)
+    # Reset Conversation button
     if st.button("Reset Conversation", use_container_width=True):
         st.session_state.messages = []
         st.session_state.last_recommendations = []
         st.rerun()
 
-
-    
 
 # ----------------------------------------------------------------------
 # 5. DISPLAY CONVERSATION HISTORY
@@ -194,3 +195,8 @@ if prompt := st.chat_input("Ask for recommendations or give feedback (e.g., 'mor
     st.session_state.messages.append({"role": "assistant", "content": response})
     st.rerun()
 
+
+
+@st.cache_data
+def get_matrix(df):
+    return build_user_item_matrix(df)
