@@ -6,6 +6,7 @@ An advanced behavioral AI system for agentic review generation and contextual co
 **Team:** GreenIQ 
 **Live Demo:** [https://project-agent-7zpdykrqys3xnqmsdmpyme.streamlit.app/]
 **GitHub:** [https://github.com/entia-lighthaus/project-agent.git]
+**Solution Paper:** [https://drive.google.com/drive/folders/1za6XMgKOADZC6TSyN-ffFfxA7oJy73L8?usp=sharing]
 
 
 # Summary
@@ -231,6 +232,23 @@ Responsible for:
 * cross-domain taste transfer
 * contextual ranking
 * recommendation explanations
+
+## Layer 4 - Monetization Vision (RAG‑Powered Sponsored Recommendations)
+
+The agent is built to generate revenue without intrusive ads. Businesses can pay to be included in the retrieval pool. When a user asks for recommendations, the agent uses **Retrieval‑Augmented Generation (RAG)** to fetch relevant sponsored items alongside organic ones – and explains why they fit.
+
+**How it works:**
+- Businesses list their products/services with target keywords, budget, and archetype preferences.
+- The agent retrieves sponsored items when they match the user’s persona, context, and query.
+- Recommendations are presented naturally (e.g., *“Because you value service quality and it’s month‑end, this sponsored budget restaurant has great reviews.”*).
+
+**Monetisation models:**
+- Cost‑per‑recommendation (CPR)
+- Sponsored boost (priority placement)
+- Premium listing subscriptions
+- Affiliate commissions
+
+This approach turns conversation into commerce – benefiting users (helpful suggestions) and businesses (targeted, trusted discovery). 
 
 ---
 

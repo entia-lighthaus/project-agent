@@ -12,9 +12,13 @@
 import os
 import re
 import pandas as pd
+from scipy.sparse import csr_matrix
+from sklearn.metrics.pairwise import cosine_similarity
 import random
 from groq import Groq
 from dotenv import load_dotenv
+
+from src.recommender.behavioral_retrieval import build_user_item_matrix, recommend_by_user_similarity
 
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -29,6 +33,41 @@ unified_df = pd.read_csv(UNIFIED_PATH)
 # ----------------------------------------------------------------------
 # 2. HELPER: EXTRACT PREFERENCES FROM USER MESSAGE (rule‑based)
 # ----------------------------------------------------------------------
+
+# This is a simple implementation for demonstration. In a production system, we would likely want to use a more robust NLP approach, possibly leveraging an LLM to extract structured preferences from the user's message.
+def build_user_item_matrix(df):
+    users = df['user_id'].unique()
+    items = df['item_id'].unique()
+    user_to_idx = {u: i for i, u in enumerate(users)}
+    item_to_idx = {i: j for j, i in enumerate(items)}
+    row = df['user_id'].map(user_to_idx).values
+    col = df['item_id'].map(item_to_idx).values
+    data = df['rating'].values
+    matrix = csr_matrix((data, (row, col)), shape=(len(users), len(items)))
+    return matrix, user_to_idx, item_to_idx
+
+def recommend_by_user_similarity(user_id, matrix, user_to_idx, item_to_idx, top_k=10):
+    if user_id not in user_to_idx:
+        return []
+    user_idx = user_to_idx[user_id]
+    # Compute pairwise similarity for all users (can be large; for demo only)
+    similarity = cosine_similarity(matrix)
+    user_sim = similarity[user_idx]
+    similar_users = user_sim.argsort()[::-1][1:6]  # top 5
+    rated_items = set(matrix[user_idx].indices)
+    scores = {}
+    for sim_idx in similar_users:
+        sim_items = matrix[sim_idx].indices
+        sim_ratings = matrix[sim_idx].data
+        for item_pos, rating in zip(sim_items, sim_ratings):
+            if item_pos not in rated_items and rating >= 4:
+                scores[item_pos] = scores.get(item_pos, 0) + rating
+    top_items = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
+    reverse_item = {v: k for k, v in item_to_idx.items()}
+    return [reverse_item[pos] for pos, _ in top_items]
+
+
+
 def extract_preferences(user_message):
     message = user_message.lower()
     prefs = {}
@@ -61,18 +100,31 @@ def extract_preferences(user_message):
 # ----------------------------------------------------------------------
 # 3. RETRIEVE CANDIDATES BASED ON PERSONA, DOMAIN, CONSTRAINTS
 # ----------------------------------------------------------------------
-def get_recommendation_candidates(persona_row, domain, constraints, top_k=15):
+def get_recommendation_candidates(persona_row, domain, constraints, top_k=15, use_cosine=True):
     """
     Returns a list of candidate items (as dicts) filtered by:
     - domain (if specified and not 'all')
     - archetype (prioritises same archetype)
     - budget and location constraints (if available in data)
     """
+    
     filtered = unified_df.copy()
     if domain and domain != "all":
         filtered = filtered[filtered["domain"] == domain]
     # If domain is None or 'all', keep all (cross-domain)
     # Prioritise same archetype
+    # Cosine similarity path
+    if use_cosine:
+        user_id = persona_row.get('user_id')
+        if user_id:
+            # Build matrix and get cosine recommendations
+            matrix, user_map, item_map = build_user_item_matrix(filtered)  # This should ideally be cached globally for efficiency
+            cos_item_ids = recommend_by_user_similarity(user_id, matrix, user_map, item_map, top_k)
+            if cos_item_ids:
+                cos_recs = filtered[filtered['item_id'].isin(cos_item_ids)]
+                if len(cos_recs) >= top_k:
+                    return cos_recs.head(top_k).to_dict(orient='records')
+                
     archetype = persona_row.get("archetype", "Balanced")
     # Create a temporary column to sort: 1 if same archetype else 0
     filtered = filtered.assign(same_archetype=(filtered["archetype"] == archetype).astype(int))
@@ -113,7 +165,7 @@ def call_llm(prompt, temperature=0.7, max_tokens=500):
 # ----------------------------------------------------------------------
 # 5. CONVERSATIONAL AGENT (entry point for Task B)
 # ----------------------------------------------------------------------
-def conversational_agent(user_message, user_id, persona_row, domain, constraints, conversation_history):
+def conversational_agent(user_message, user_id, persona_row, domain, constraints, conversation_history, use_cosine=True):
     """
     Generates a natural language response that may include recommendations,
     clarifications, or follow-up questions, based on the user's message, persona,
@@ -127,10 +179,10 @@ def conversational_agent(user_message, user_id, persona_row, domain, constraints
         merged_constraints[k] = v
     
     # 2. Retrieve candidates
-    candidates = get_recommendation_candidates(persona_row, domain, merged_constraints, top_k=15)
+    candidates = get_recommendation_candidates(persona_row, domain, constraints, top_k=15, use_cosine=use_cosine)
     if not candidates:
         candidates = [{"item_name": "No items match your criteria", "domain": "none", "rating": 0, "review_text": "Try adjusting your preferences."}]
-    
+     
     # 3. Build context for LLM
     persona_text = f"Archetype: {persona_row.get('archetype', 'Balanced')}, Dominant value: {persona_row.get('dominant_value', 'neutral')}, Average rating: {persona_row.get('avg_rating', 3.5)}"
     context_str = f"""
